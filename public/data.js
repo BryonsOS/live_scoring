@@ -183,6 +183,7 @@ export function saveEntrant(input, id) {
 export const setOut = (id, out) => run(sb.from('ls_entrants').update({ out }).eq('id', id));
 export const deleteEntrant = (id) => run(sb.from('ls_entrants').delete().eq('id', id));
 export const importEntrants = (rows) => run(sb.rpc('ls_import_entrants', { p_rows: rows }));
+export const importResults = (rows) => run(sb.rpc('ls_import_results', { p_rows: rows }));
 
 export function saveClass(input, originalCode) {
   const c = {

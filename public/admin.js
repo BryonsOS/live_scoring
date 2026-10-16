@@ -1,6 +1,7 @@
 import { esc, fmt, timeAgo, store, setLiveBadge, downloadFile, initThemeToggle } from './common.js';
 
 import { csvToEntrants, standingsToCsv } from './csv.js';
+import { parseResultsSheet } from './sheet-import.js';
 import * as db from './data.js';
 
 const $ = (id) => document.getElementById(id);
@@ -525,6 +526,134 @@ $('settings-form').addEventListener('submit', async (e) => {
     await refresh();
   } catch (err) {
     flashMsg('settings-msg', err.message, false);
+  }
+});
+
+// ---------- daily spreadsheet upload ----------
+// SheetJS reads .xlsx/.xls/.csv in the browser; loaded only when someone uploads a file.
+const SHEETJS_URL = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+let sheetJs = null;
+function loadSheetJs() {
+  sheetJs ??= new Promise((resolve, reject) => {
+    const s = Object.assign(document.createElement('script'), { src: SHEETJS_URL, onload: () => resolve(window.XLSX) });
+    s.onerror = () => {
+      sheetJs = null;
+      reject(new Error('Could not load the spreadsheet reader. Check the internet connection and try again.'));
+    };
+    document.head.append(s);
+  });
+  return sheetJs;
+}
+
+let pendingSheet = null;
+
+function resetSheet() {
+  pendingSheet = null;
+  $('sheet-preview').hidden = true;
+  $('sheet-file').value = '';
+  $('sheet-name').textContent = '';
+}
+
+async function readSheet(file) {
+  resetSheet();
+  $('sheet-result').innerHTML = '';
+  $('sheet-name').textContent = file.name;
+  flashMsg('sheet-msg', 'Reading spreadsheet…');
+  try {
+    const XLSX = await loadSheetJs();
+    const wb = XLSX.read(await file.arrayBuffer());
+    // Use the first sheet that has a recognisable header row.
+    let parsed = null;
+    let lastError = null;
+    for (const name of wb.SheetNames) {
+      const grid = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: true, defval: null });
+      try {
+        parsed = { ...parseResultsSheet(grid), sheetName: name };
+        break;
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    if (!parsed) throw lastError ?? new Error('The file has no sheets');
+    if (!parsed.entrants.length) throw new Error('No driver rows found under the header row.');
+    pendingSheet = parsed;
+    renderSheetPreview(parsed);
+    $('sheet-msg').textContent = '';
+  } catch (err) {
+    flashMsg('sheet-msg', err.message, false);
+  }
+}
+
+function renderSheetPreview(p) {
+  const known = new Set(state.classes.map((c) => c.code));
+  const existing = new Set(state.entrants.map((e) => e.car_number));
+  const newCars = p.entrants.filter((e) => !existing.has(e.car_number)).length;
+  const stats = [
+    [p.entrants.length, 'drivers'],
+    [newCars, 'new drivers'],
+    [p.runCount, 'times'],
+    [p.outCount, 'marked out'],
+    [p.days.length ? `${p.days[0]}–${p.days.at(-1)}` : '—', 'days'],
+  ];
+  $('sheet-stats').innerHTML = stats.map(([n, l]) => `<div class="stat"><b>${esc(n)}</b><span>${esc(l)}</span></div>`).join('');
+  $('sheet-classes').innerHTML = `<thead><tr><th>Class</th><th class="r">Drivers</th>${p.days.map((d) => `<th class="r">Day ${d}</th>`).join('')}</tr></thead><tbody>
+    ${p.classes
+      .map((code) => {
+        const rows = p.entrants.filter((e) => e.class_code === code);
+        const name = rows.find((e) => e.class_name)?.class_name ?? '';
+        const perDay = p.days.map((d) => rows.filter((e) => e.runs.some((r) => r.day === d)).length);
+        return `<tr><td><b>${esc(code)}</b> ${esc(name)}${known.has(code) ? '' : ' <span class="tag new">NEW CLASS</span>'}</td>
+          <td class="r">${rows.length}</td>${perDay.map((n) => `<td class="r">${n || '—'}</td>`).join('')}</tr>`;
+      })
+      .join('')}</tbody>`;
+  const notes = [...p.warnings];
+  const unknown = p.classes.filter((c) => !known.has(c));
+  if (unknown.length) notes.unshift(`New class${unknown.length > 1 ? 'es' : ''} ${unknown.join(', ')} will be created. Set waived days on the Classes & days tab afterwards.`);
+  const dayNums = new Set(state.days.map((d) => d.num));
+  const missingDays = p.days.filter((d) => !dayNums.has(d));
+  if (missingDays.length) notes.unshift(`Day ${missingDays.join(', ')} isn't set up as an event day, so those times will be skipped.`);
+  $('sheet-warnings').innerHTML = notes.length
+    ? `<div class="notice"><b>Check before importing</b><ul>${notes.slice(0, 50).map((n) => `<li>${esc(n)}</li>`).join('')}</ul></div>`
+    : '';
+  $('sheet-preview').hidden = false;
+}
+
+$('sheet-file').addEventListener('change', (e) => e.target.files[0] && readSheet(e.target.files[0]));
+const drop = $('sheet-drop');
+drop.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  drop.classList.add('over');
+});
+drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+drop.addEventListener('drop', (e) => {
+  e.preventDefault();
+  drop.classList.remove('over');
+  if (e.dataTransfer.files[0]) readSheet(e.dataTransfer.files[0]);
+});
+$('sheet-cancel').addEventListener('click', () => {
+  resetSheet();
+  $('sheet-msg').textContent = '';
+});
+
+$('sheet-import').addEventListener('click', async () => {
+  if (!pendingSheet) return;
+  const btn = $('sheet-import');
+  btn.disabled = true;
+  flashMsg('sheet-msg', `Importing ${pendingSheet.entrants.length} drivers…`);
+  try {
+    const r = await db.importResults(pendingSheet.entrants);
+    const skipped = r.skipped ?? [];
+    $('sheet-msg').textContent = '';
+    $('sheet-result').innerHTML = `<div class="saved-card"><div><b>Imported ${esc(pendingSheet.sheetName)}</b><br>
+      ${r.added} new and ${r.updated} updated drivers · ${r.runs} times saved${r.classesAdded ? ` · ${r.classesAdded} new classes` : ''}${skipped.length ? ` · ${skipped.length} times skipped` : ''}.
+      The public standings are already updated.</div></div>
+      ${skipped.length ? `<div class="notice"><b>Skipped times</b><ul>${skipped.slice(0, 100).map((s) => `<li>Car #${esc(s.car)} day ${esc(s.day)}: ${esc(s.reason)}</li>`).join('')}</ul></div>` : ''}`;
+    resetSheet();
+    await refresh();
+  } catch (err) {
+    flashMsg('sheet-msg', err.message, false);
+  } finally {
+    btn.disabled = false;
   }
 });
 

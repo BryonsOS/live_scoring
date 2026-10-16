@@ -101,3 +101,18 @@ label.big input { font-family: var(--display); font-size: 2.2rem; font-weight: 4
 .entrant-form label.check { margin-bottom: 18px; }
 .panel .search { max-width: 320px; }
 @media (max-width: 760px) { .who { display: none; } }
+
+/* spreadsheet upload */
+.drop {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center;
+  border: 2px dashed var(--line); border-radius: 12px; padding: 28px 16px; cursor: pointer; background: var(--bg); color: var(--ink);
+  font-size: 0.95rem;
+}
+.drop:hover, .drop.over { border-color: var(--brand); background: var(--brand-tint); }
+.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 16px 0; }
+.stat { background: var(--bg); border-radius: 10px; padding: 10px 12px; }
+.stat b { display: block; font-family: var(--display); font-weight: 400; font-size: 1.8rem; line-height: 1.1; }
+.stat span { font-size: 0.75rem; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+.notice { border-radius: 10px; padding: 10px 12px; margin: 12px 0; font-size: 0.86rem; background: var(--brand-tint); border: 1px solid var(--brand); }
+.notice ul { margin: 6px 0 0; padding-left: 18px; max-height: 180px; overflow: auto; }
+.tag.new { background: var(--brand); color: var(--on-brand); }

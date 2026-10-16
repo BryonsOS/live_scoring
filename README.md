@@ -19,6 +19,10 @@ Sick Town Hall project). No server of our own runs anywhere.
     <kbd>Enter</kbd>. **No time (penalty)** records the penalty values (1.000 / 20.000 / 50.00 by
     default). Re-entering a car for the same day replaces its time. Recent entries can be edited or
     deleted.
+  - **Upload spreadsheet**: upload the end-of-day Excel results sheet (.xlsx, .xls or CSV, same
+    layout as the printed results). It previews drivers, times and anything odd, then adds or
+    updates every driver and time in one go. It matches drivers by car number, deletes nothing,
+    and skips "Waiver" cells. The public page updates the moment it's imported.
   - **Entrants**: add or edit drivers, mark them **Out**, or paste a spreadsheet/CSV to import them.
   - **Classes & days**: tracks per day, classes, and which days each class **waives**.
   - **Settings**: event name, penalty values, CSV export, and the **admin list**.
