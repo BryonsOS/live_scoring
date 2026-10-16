@@ -203,6 +203,16 @@
           <hr />
           <p><button class="btn ghost" type="button" id="csv">Download standings CSV</button></p>
         </div>
+        <div class="panel narrow danger-zone">
+          <h3>Clear results</h3>
+          <p class="hint">For resetting after a test or before a new event. Days, classes, settings and admins are kept.
+            This can't be undone, so download the standings CSV first if you need a copy.</p>
+          <div class="actions">
+            <button class="btn danger" type="button" id="clear-times">Clear all times</button>
+            <button class="btn danger" type="button" id="clear-all">Clear all drivers and times</button>
+          </div>
+          <p class="msg" id="clear-msg" role="status"></p>
+        </div>
         <div class="panel narrow">
           <h3>Your password</h3>
           <form id="password-form" autocomplete="off">

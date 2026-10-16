@@ -657,6 +657,24 @@ $('sheet-import').addEventListener('click', async () => {
   }
 });
 
+// ---------- clear results ----------
+async function clearResults(kind) {
+  const drivers = state.entrants.length;
+  const times = state.runs.length;
+  const what = kind === 'all' ? `all ${drivers} drivers and ${times} times` : `all ${times} times (drivers are kept)`;
+  const typed = prompt(`This permanently deletes ${what} from the live results.\n\nType CLEAR to confirm.`);
+  if (typed?.trim().toUpperCase() !== 'CLEAR') return flashMsg('clear-msg', 'Nothing was deleted', false);
+  try {
+    await (kind === 'all' ? db.clearDriversAndTimes() : db.clearTimes());
+    flashMsg('clear-msg', kind === 'all' ? 'All drivers and times cleared' : 'All times cleared');
+    await refresh();
+  } catch (err) {
+    flashMsg('clear-msg', err.message, false);
+  }
+}
+$('clear-times').addEventListener('click', () => clearResults('times'));
+$('clear-all').addEventListener('click', () => clearResults('all'));
+
 // ---------- your password ----------
 $('password-form').addEventListener('submit', async (e) => {
   e.preventDefault();

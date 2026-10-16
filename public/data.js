@@ -212,6 +212,10 @@ export function saveSettings({ eventName, penaltyRt, penaltyEt, penaltyMph }) {
   return run(sb.from('ls_settings').update(vals).eq('id', 1));
 }
 
+// Bulk resets (admins only, enforced by row level security). Deleting drivers also removes their times.
+export const clearTimes = () => run(sb.from('ls_runs').delete().gt('entrant_id', 0));
+export const clearDriversAndTimes = () => run(sb.from('ls_entrants').delete().gt('id', 0));
+
 export const listAdmins = () => run(sb.from('ls_admins').select('email, added_at').order('email'));
 export const addAdmin = (email) => run(sb.from('ls_admins').insert({ email: String(email).trim().toLowerCase() }));
 export const removeAdmin = (email) => run(sb.from('ls_admins').delete().eq('email', email));

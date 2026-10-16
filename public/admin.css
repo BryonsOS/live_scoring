@@ -116,3 +116,6 @@ label.big input { font-family: var(--display); font-size: 2.2rem; font-weight: 4
 .notice { border-radius: 10px; padding: 10px 12px; margin: 12px 0; font-size: 0.86rem; background: var(--brand-tint); border: 1px solid var(--brand); }
 .notice ul { margin: 6px 0 0; padding-left: 18px; max-height: 180px; overflow: auto; }
 .tag.new { background: var(--brand); color: var(--on-brand); }
+
+.danger-zone { border-color: var(--warn); }
+.danger-zone h3 { color: var(--warn); }
