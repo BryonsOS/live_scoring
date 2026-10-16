@@ -1,8 +1,10 @@
-import { esc, fmt, timeAgo, store, setLiveBadge, downloadFile } from './common.js';
+import { esc, fmt, timeAgo, store, setLiveBadge, downloadFile, initThemeToggle } from './common.js';
+
 import { csvToEntrants, standingsToCsv } from './csv.js';
 import * as db from './data.js';
 
 const $ = (id) => document.getElementById(id);
+initThemeToggle($('theme-toggle'));
 let state = null;
 let day = store.get('ls.admin.day', 1);
 let editingEntrantId = null;

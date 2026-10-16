@@ -1,8 +1,10 @@
-import { esc, fmt, timeAgo, store, setLiveBadge, downloadFile } from './common.js';
+import { esc, fmt, timeAgo, store, setLiveBadge, downloadFile, initThemeToggle } from './common.js';
+
 import { watch } from './data.js';
 import { standingsToCsv } from './csv.js';
 
 const $ = (id) => document.getElementById(id);
+initThemeToggle($('theme-toggle'));
 let data = null;
 let receivedAt = 0;
 let selected = store.get('ls.class', 'ALL');

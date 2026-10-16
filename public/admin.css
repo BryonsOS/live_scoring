@@ -81,7 +81,7 @@ label.big input { font-family: var(--display); font-size: 2.2rem; font-weight: 4
   display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; padding: 10px 12px;
   border-radius: 10px; background: #e8f6ec; border: 1px solid #a8dcb6; color: #14532d; font-size: 0.9rem;
 }
-@media (prefers-color-scheme: dark) { .saved-card { background: #10301c; border-color: #1f5c35; color: #c9f0d5; } }
+:root[data-theme='dark'] .saved-card { background: #10301c; border-color: #1f5c35; color: #c9f0d5; }
 
 .admin-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
 .admin-table th { text-align: left; font-size: 0.68rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); padding: 7px 6px; border-bottom: 2px solid var(--line); white-space: nowrap; }

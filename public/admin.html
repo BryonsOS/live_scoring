@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#141414" />
   <meta name="robots" content="noindex" />
   <title>Scoring Admin · Sick Week</title>
+  <script>try { document.documentElement.dataset.theme = JSON.parse(localStorage.getItem('ls.theme')) === 'dark' ? 'dark' : 'light'; } catch { document.documentElement.dataset.theme = 'light'; }</script>
   <link rel="icon" type="image/png" href="/img/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -24,6 +25,7 @@
         </div>
       </a>
       <div class="status">
+        <button class="theme-toggle" id="theme-toggle" type="button"></button>
         <a class="btn small ghost light" href="/" target="_blank" rel="noopener">Public standings ↗</a>
         <div class="live" id="live"><span class="dot"></span><span id="live-text">Connecting</span></div>
         <span class="who" id="who"></span>
