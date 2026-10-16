@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#c8102e" />
+  <meta name="robots" content="noindex" />
+  <title>Scoring Admin</title>
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/admin.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div>
+        <h1 id="event-name">Scoring Admin</h1>
+        <div class="sub"><a href="/" target="_blank" rel="noopener">Open public standings ↗</a></div>
+      </div>
+      <div class="live" id="live"><span class="dot"></span><span id="live-text"></span></div>
+      <button class="btn ghost light" id="logout" hidden>Log out</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Login -->
+    <section id="login-view" class="panel narrow" hidden>
+      <h2>Admin login</h2>
+      <form id="login-form">
+        <label>Password <input type="password" id="password" autocomplete="current-password" required autofocus /></label>
+        <button class="btn primary" type="submit">Log in</button>
+        <p class="error" id="login-error"></p>
+      </form>
+    </section>
+
+    <div id="app-view" hidden>
+      <nav class="tabs" role="tablist">
+        <button role="tab" data-tab="times" aria-selected="true">Enter times</button>
+        <button role="tab" data-tab="entrants">Entrants</button>
+        <button role="tab" data-tab="setup">Classes &amp; days</button>
+        <button role="tab" data-tab="settings">Settings</button>
+      </nav>
+
+      <!-- Enter times -->
+      <section class="tab-panel" data-panel="times">
+        <div class="grid-2">
+          <div class="panel">
+            <form id="run-form" autocomplete="off">
+              <div class="day-picker" id="day-picker" role="radiogroup" aria-label="Event day"></div>
+              <label class="big">Car #
+                <input id="run-car" inputmode="numeric" required placeholder="e.g. 401" />
+              </label>
+              <div id="run-driver" class="driver-card muted">Type a car number</div>
+              <div class="time-inputs">
+                <label>RT <input id="run-rt" inputmode="decimal" placeholder="0.000" /></label>
+                <label>ET <input id="run-et" inputmode="decimal" placeholder="0.000" /></label>
+                <label>MPH <input id="run-mph" inputmode="decimal" placeholder="0.00" /></label>
+              </div>
+              <div class="actions">
+                <button class="btn primary" type="submit" id="run-submit">Submit time</button>
+                <button class="btn warn" type="button" id="run-penalty" title="Driver did not make a timed pass">No time (penalty)</button>
+              </div>
+              <p class="hint">Press <kbd>Enter</kbd> to move to the next field and submit. Re-entering a car for the same day replaces its time.</p>
+              <p class="msg" id="run-msg" role="status"></p>
+            </form>
+          </div>
+          <div class="panel">
+            <h3>Recent entries</h3>
+            <div class="table-wrap"><table class="admin-table" id="recent-table"></table></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Entrants -->
+      <section class="tab-panel" data-panel="entrants" hidden>
+        <div class="panel">
+          <div class="row-between">
+            <h3 id="entrant-form-title">Add entrant</h3>
+            <button class="btn ghost" type="button" id="entrant-cancel" hidden>Cancel edit</button>
+          </div>
+          <form id="entrant-form" class="entrant-form" autocomplete="off">
+            <label>Car # <input name="car_number" required /></label>
+            <label>Class <select name="class_code" required></select></label>
+            <label>First name <input name="first_name" /></label>
+            <label>Last name <input name="last_name" /></label>
+            <label>Year <input name="year" inputmode="numeric" /></label>
+            <label>Make <input name="make" /></label>
+            <label>Model <input name="model" /></label>
+            <label>Color <input name="color" /></label>
+            <label class="check"><input type="checkbox" name="out" /> Out of competition</label>
+            <button class="btn primary" type="submit" id="entrant-save">Add entrant</button>
+          </form>
+          <p class="msg" id="entrant-msg" role="status"></p>
+        </div>
+
+        <div class="panel">
+          <div class="row-between">
+            <h3>Entrants <span class="muted" id="entrant-count"></span></h3>
+            <input class="search" id="entrant-search" type="search" placeholder="Search car #, name, class" />
+          </div>
+          <div class="table-wrap"><table class="admin-table" id="entrant-table"></table></div>
+        </div>
+
+        <details class="panel">
+          <summary><h3 style="display:inline">Import entrants from CSV / spreadsheet</h3></summary>
+          <p class="hint">Paste rows copied from Excel or Google Sheets, or a CSV. The first row must be a header with at least
+            <b>Car #</b> and <b>Class</b> (class letter, e.g. <code>R</code>). Optional columns: First Name, Last Name, Year, Make, Model, Color.
+            Existing car numbers are updated; new ones are added.</p>
+          <textarea id="import-text" rows="8" placeholder="Car #,Class,First Name,Last Name,Year,Make,Model,Color&#10;401,A,Joshua,Chechak,1972,Plymouth,Barracuda,Yellow"></textarea>
+          <div class="actions">
+            <label class="btn ghost file-btn">Choose CSV file <input type="file" id="import-file" accept=".csv,.txt,text/csv" hidden /></label>
+            <button class="btn primary" type="button" id="import-go">Import</button>
+          </div>
+          <p class="msg" id="import-msg" role="status"></p>
+        </details>
+      </section>
+
+      <!-- Classes & days -->
+      <section class="tab-panel" data-panel="setup" hidden>
+        <div class="panel">
+          <h3>Event days</h3>
+          <p class="hint">One row per day / track. Removing a day deletes any times entered for it.</p>
+          <div class="table-wrap"><table class="admin-table" id="days-table"></table></div>
+          <div class="actions">
+            <button class="btn ghost" type="button" id="day-add">+ Add day</button>
+            <button class="btn primary" type="button" id="days-save">Save days</button>
+          </div>
+          <p class="msg" id="days-msg" role="status"></p>
+        </div>
+        <div class="panel">
+          <h3>Classes</h3>
+          <p class="hint">Tick the days a class <b>waives</b> — those days are shown as "Waiver" and left out of its averages.</p>
+          <div class="table-wrap"><table class="admin-table" id="classes-table"></table></div>
+          <p class="msg" id="classes-msg" role="status"></p>
+        </div>
+      </section>
+
+      <!-- Settings -->
+      <section class="tab-panel" data-panel="settings" hidden>
+        <div class="panel narrow">
+          <form id="settings-form">
+            <label>Event name <input name="eventName" required /></label>
+            <fieldset>
+              <legend>"No time" penalty values</legend>
+              <div class="time-inputs">
+                <label>RT <input name="penaltyRt" inputmode="decimal" required /></label>
+                <label>ET <input name="penaltyEt" inputmode="decimal" required /></label>
+                <label>MPH <input name="penaltyMph" inputmode="decimal" required /></label>
+              </div>
+            </fieldset>
+            <button class="btn primary" type="submit">Save settings</button>
+            <p class="msg" id="settings-msg" role="status"></p>
+          </form>
+          <hr />
+          <p><a class="btn ghost" href="/api/standings.csv">Download standings CSV</a></p>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script type="module" src="/admin.js"></script>
+</body>
+</html>

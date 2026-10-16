@@ -1,0 +1,16 @@
+{
+  "name": "live-scoring",
+  "version": "0.1.0",
+  "description": "Live drag-and-drive scoring: admin time entry with a public standings page that updates instantly.",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --no-warnings=ExperimentalWarning server.js",
+    "dev": "node --no-warnings=ExperimentalWarning --watch server.js",
+    "test": "node --no-warnings=ExperimentalWarning --test test/*.test.js",
+    "demo": "DB_PATH=data/demo.db node --no-warnings=ExperimentalWarning scripts/seed-demo.js && DB_PATH=data/demo.db ADMIN_PASSWORD=demo node --no-warnings=ExperimentalWarning server.js"
+  }
+}

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#c8102e" />
+  <title>Live Results</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div>
+        <h1 id="event-name">Live Results</h1>
+        <div class="sub" id="updated">Connecting…</div>
+      </div>
+      <div class="live" id="live"><span class="dot"></span><span id="live-text">Connecting</span></div>
+    </div>
+  </header>
+
+  <main>
+    <div class="section-label">Latest results</div>
+    <div class="ticker" id="ticker"></div>
+
+    <div class="filters">
+      <div class="chips" id="chips" role="toolbar" aria-label="Filter by class"></div>
+      <input class="search" id="search" type="search" placeholder="Search car # or driver" aria-label="Search car number or driver" />
+    </div>
+
+    <div id="classes"></div>
+    <p class="footer-note">Standings update automatically after every submitted time. Ranked by average ET over completed counted days.
+      <a href="/api/standings.csv">Download CSV</a></p>
+  </main>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
