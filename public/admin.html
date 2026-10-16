@@ -97,9 +97,9 @@
         <div class="panel">
           <h2>Upload results spreadsheet</h2>
           <p class="hint">Upload the end-of-day Excel sheet (.xlsx or .xls) or a CSV in the same layout as the printed results:
-            <b>Car #</b>, <b>CC</b>, <b>Class</b>, First Name, LastName, Out?, Year, Make, Model, Color, then <b>RT - 1, ET - 1, MPH - 1</b>, RT - 2… for each day.
+            <b>Car #</b>, <b>CC</b>, <b>Class</b>, First Name, Last Name, Out?, Year, Make, Model, Color, then <b>ET - 1, MPH - 1</b> (and RT - 1 if you record reaction times), ET - 2… for each day. Track names in the row above set the day locations, and any new days or classes are added.
             Drivers are matched by car number. New drivers are added and existing ones updated. Times in the sheet replace the times stored for that car and day.
-            Nothing is deleted. When a whole class says "Waiver" for a day (a rain day), that day is marked waived for the class and left out of its averages.</p>
+            Nothing is deleted. When a whole class says "Waiver" or "Canceled" for a day (a rain day), that day is marked waived for the class and left out of its averages.</p>
           <label class="drop" id="sheet-drop">
             <input type="file" id="sheet-file" accept=".xlsx,.xls,.xlsm,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" hidden />
             <b>Choose the spreadsheet</b> or drop it here

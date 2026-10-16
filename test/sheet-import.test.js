@@ -71,3 +71,19 @@ test('a day where a whole class is "Waiver" is reported as waived for that class
   assert.deepEqual(p.waivers.A, { waived: [3], run: [1, 2] });
   assert.deepEqual(p.waivers.R, { waived: [], run: [1, 2, 3] });
 });
+
+test('Sick 66 layout: ET/MPH only, 4-decimal ETs, "Canceled" rain day', () => {
+  const p = parseResultsSheet([
+    [null, null, null, null, null, null, null, null, null, null, 'Asbury, MO', null, 'Bonne Terre, MO', null, 'Havana, IL', null],
+    ['Car #', 'CC', 'Class', 'First Name', 'Last Name', 'Out?', 'Year', 'Make', 'Model', 'Color', 'ET - 1', 'MPH - 1', 'ET - 2', 'MPH - 2', 'ET - 3', 'MPH - 3', 'Finals', 'Finals'],
+    [31, 'A', 'A/Gas Gasser (1/8)', 'Phil', 'Haack', null, 1955, 'Chevrolet', 210, 'Blue', 6.2314, 110.57, 'Canceled', 'Canceled', 6.1, 112.52, 6.1657, 111.545],
+    [183, 'B', 'B/Gas Gasser (1/8)', 'Jason', 'Linke', '✔', 1951, 'Ford', '4 Dr Sedan', 'Black', 9.1641, 78.56, 'Canceled', 'Canceled', null, null, null, null],
+  ]);
+  assert.deepEqual(p.warnings, []);
+  assert.deepEqual(p.dayLocations, { 1: 'Asbury, MO', 2: 'Bonne Terre, MO', 3: 'Havana, IL' });
+  assert.deepEqual(p.entrants[0].runs, [{ day: 1, rt: null, et: 6.2314, mph: 110.57 }, { day: 3, rt: null, et: 6.1, mph: 112.52 }]);
+  assert.equal(p.entrants[0].model, '210');
+  assert.equal(p.entrants[1].out, true);
+  assert.deepEqual(p.waivers.A.waived, [2]);
+  assert.deepEqual(p.waivers.B.waived, [2]);
+});

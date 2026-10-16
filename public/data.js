@@ -197,6 +197,10 @@ export function saveClass(input, originalCode) {
 }
 export const setWaivedDays = (code, days) =>
   run(sb.from('ls_classes').update({ waived_days: [...new Set(days)].sort((a, b) => a - b) }).eq('code', code));
+export const setClassName = (code, name) => run(sb.from('ls_classes').update({ name }).eq('code', code));
+// Adds days the sheet has that the site doesn't, and fills in track names. Never removes a day.
+export const upsertDays = (days) =>
+  run(sb.from('ls_days').upsert(days.map((d) => ({ num: d.num, location: d.location ?? '' })), { onConflict: 'num' }));
 export const deleteClass = (code) => run(sb.from('ls_classes').delete().eq('code', code));
 
 export function saveDays(days) {

@@ -1,7 +1,13 @@
 export const esc = (v) =>
   String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-export const fmt = (n, places) => (n == null || n === '' ? '—' : Number(n).toFixed(places));
+// Times show 3 decimals, or 4 when the timing system gave a 4th (6.2314).
+export const fmt = (n, places) => {
+  if (n == null || n === '') return '—';
+  const v = Number(n);
+  if (places === 3 && !v.toFixed(4).endsWith('0')) return v.toFixed(4);
+  return v.toFixed(places);
+};
 
 export const timeAgo = (iso) => {
   const s = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));

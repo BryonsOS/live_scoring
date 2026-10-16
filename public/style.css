@@ -187,6 +187,7 @@ tr.flash td { animation: flash 3.5s ease-out; }
 .footer-note { color: var(--ink-3); font-size: 0.78rem; text-align: center; margin-top: 28px; }
 .footer-note a { color: inherit; }
 .chev { display: none; }
+#classes.no-rt .avg-rt-col { display: none; }
 
 /* Phones: hide per-day columns, tap a row to see them. */
 .details-row { display: none; }

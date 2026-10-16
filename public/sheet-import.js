@@ -44,7 +44,8 @@ function number(v) {
   return Number(s);
 }
 
-const isWaiver = (v) => /waiv/i.test(String(v ?? ''));
+// "Waiver" (Sick Week) and "Canceled" (Sick 66) both mean the day didn't count, e.g. a rain day.
+const isWaiver = (v) => /waiv|cancel|rain/i.test(String(v ?? ''));
 const truthy = (v) => {
   const s = String(v ?? '').trim().toLowerCase();
   return s !== '' && !['no', 'n', 'false', '0', '-'].includes(s);

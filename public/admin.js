@@ -550,7 +550,7 @@ let pendingSheet = null;
 // Waived days the sheet implies (a whole class marked "Waiver" on a day, e.g. a rain day),
 // compared with what's stored. Returns [{ code, from, to, isNew }] for classes that change.
 function waiverChanges(p) {
-  const eventDays = new Set(state.days.map((d) => d.num));
+  const eventDays = new Set([...state.days.map((d) => d.num), ...p.days]);
   const changes = [];
   for (const code of p.classes) {
     const w = p.waivers[code] ?? { waived: [], run: [] };
@@ -563,6 +563,29 @@ function waiverChanges(p) {
 }
 
 const describeDays = (days) => (days.length ? `day ${days.join(', ')}` : 'no days');
+
+// Days to add or rename so the site matches the sheet's day columns and track names.
+function dayChanges(p) {
+  return p.days
+    .map((num) => {
+      const existing = state.days.find((d) => d.num === num);
+      const location = p.dayLocations[num] ?? existing?.location ?? '';
+      if (existing && existing.location === location) return null;
+      return { num, location, isNew: !existing, from: existing?.location ?? '' };
+    })
+    .filter(Boolean);
+}
+
+// Class names from the sheet win (the same letter can mean different classes at different events).
+function classNameChanges(p) {
+  return p.classes
+    .map((code) => {
+      const existing = state.classes.find((c) => c.code === code);
+      const name = p.entrants.find((e) => e.class_code === code && e.class_name)?.class_name;
+      return existing && name && existing.name !== name ? { code, from: existing.name, to: name } : null;
+    })
+    .filter(Boolean);
+}
 
 function resetSheet() {
   pendingSheet = null;
@@ -632,14 +655,18 @@ function renderSheetPreview(p) {
       byTo.set(key, [...(byTo.get(key) ?? []), c.code]);
     }
     for (const [days, codes] of byTo) {
-      notes.unshift(`Waived days will be set to ${days} for class ${codes.join(', ')} (taken from the "Waiver" cells in the sheet).`);
+      notes.unshift(`Waived days will be set to ${days} for class ${codes.join(', ')} (the whole class has "Waiver" or "Canceled" that day).`);
     }
   }
   const unknown = p.classes.filter((c) => !known.has(c));
-  if (unknown.length) notes.unshift(`New class${unknown.length > 1 ? 'es' : ''} ${unknown.join(', ')} will be created. Set waived days on the Classes & days tab afterwards.`);
-  const dayNums = new Set(state.days.map((d) => d.num));
-  const missingDays = p.days.filter((d) => !dayNums.has(d));
-  if (missingDays.length) notes.unshift(`Day ${missingDays.join(', ')} isn't set up as an event day, so those times will be skipped.`);
+  if (unknown.length) notes.unshift(`New class${unknown.length > 1 ? 'es' : ''} ${unknown.join(', ')} will be created.`);
+  const dChanges = dayChanges(p);
+  const added = dChanges.filter((d) => d.isNew);
+  const renamed = dChanges.filter((d) => !d.isNew);
+  if (added.length) notes.unshift(`Day ${added.map((d) => `${d.num}${d.location ? ` (${d.location})` : ''}`).join(', ')} will be added to the event.`);
+  if (renamed.length) notes.unshift(`Track names will be updated: ${renamed.map((d) => `day ${d.num} → ${d.location}`).join(', ')}.`);
+  const names = classNameChanges(p);
+  if (names.length) notes.unshift(`Class names will be updated from the sheet: ${names.map((c) => `${c.code} “${c.from}” → “${c.to}”`).join(', ')}.`);
   $('sheet-warnings').innerHTML = notes.length
     ? `<div class="notice"><b>Check before importing</b><ul>${notes.slice(0, 50).map((n) => `<li>${esc(n)}</li>`).join('')}</ul></div>`
     : '';
@@ -671,6 +698,9 @@ $('sheet-import').addEventListener('click', async () => {
   try {
     // Un-waive days that now have times before importing (times on waived days are skipped),
     // then set the rest, including classes the import creates.
+    const dChanges = dayChanges(pendingSheet);
+    if (dChanges.length) await db.upsertDays(dChanges);
+    for (const c of classNameChanges(pendingSheet)) await db.setClassName(c.code, c.to);
     const changes = waiverChanges(pendingSheet);
     for (const c of changes.filter((c) => !c.isNew)) await db.setWaivedDays(c.code, c.to);
     const r = await db.importResults(pendingSheet.entrants);

@@ -21,7 +21,7 @@ function dayCell(res) {
   if (res.waived) return '<td class="day-cell day-col waived">Waiver</td>';
   return `<td class="day-cell day-col num${res.penalty ? ' pen' : ''}"${res.penalty ? ' title="No time recorded (penalty)"' : ''}>
     <span class="et">${fmt(res.et, 3)}</span>
-    <span class="small">${fmt(res.rt, 3)} · ${fmt(res.mph, 2)}</span></td>`;
+    <span class="small">${[res.rt != null ? fmt(res.rt, 3) : '', res.mph != null ? fmt(res.mph, 2) : ''].filter(Boolean).join(' · ')}</span></td>`;
 }
 
 function detailGrid(row, days) {
@@ -29,7 +29,7 @@ function detailGrid(row, days) {
     .map((d) => {
       const r = row.results[d.num];
       const body = !r ? '<span class="sub-line">No time yet</span>' : r.waived ? '<span class="sub-line">Waiver</span>'
-        : `<b>${fmt(r.et, 3)}</b>${r.penalty ? '<span class="tag pen">NO TIME</span>' : ''}<br>${fmt(r.rt, 3)} RT · ${fmt(r.mph, 2)} mph`;
+        : `<b>${fmt(r.et, 3)}</b>${r.penalty ? '<span class="tag pen">NO TIME</span>' : ''}<br>${[r.rt != null ? `${fmt(r.rt, 3)} RT` : '', r.mph != null ? `${fmt(r.mph, 2)} mph` : ''].filter(Boolean).join(' · ')}`;
       return `<div><span class="section-label">Day ${d.num}</span><br>${body}</div>`;
     })
     .join('');
@@ -98,14 +98,14 @@ function renderClasses(changed) {
                   <div class="sub-line">${r.completed} of ${r.required} days</div></td>
                 <td class="vehicle-col vehicle">${esc([r.year, r.make, r.model].filter(Boolean).join(' '))}<div class="sub-line">${esc(r.color)}</div></td>
                 ${days.map((d) => dayCell(r.results[d.num])).join('')}
-                <td class="r avg avg-et num">${fmt(r.avgEt, 3)}</td>
+                <td class="r avg avg-et num">${fmt(r.avgEt, 4)}</td>
                 <td class="r gap gap-col num">${gap}</td>
                 <td class="r avg num">${fmt(r.avgMph, 2)}</td>
                 <td class="r avg avg-rt-col num">${fmt(r.avgRt, 3)}</td>
               </tr>
               <tr class="details-row${open ? ' open' : ''}"><td colspan="${cols}">
                 <div class="vehicle">${esc([r.year, r.make, r.model, r.color].filter(Boolean).join(' · '))}</div>
-                <div class="sub-line">Avg RT ${fmt(r.avgRt, 3)}${gap ? ` · ${gap} behind the leader` : ''}</div>
+                <div class="sub-line">${[r.avgRt != null ? `Avg RT ${fmt(r.avgRt, 3)}` : '', gap ? `${gap} behind the leader` : ''].filter(Boolean).join(' · ')}</div>
                 <div class="day-grid">${detailGrid(r, days)}</div></td></tr>`;
             })
             .join('')
@@ -117,6 +117,8 @@ function renderClasses(changed) {
       </section>`;
     })
     .join('');
+  // Events whose timing sheets have no reaction times don't need an empty Avg RT column.
+  $('classes').classList.toggle('no-rt', !data.runs.some((r) => r.rt != null && !r.penalty));
   $('classes').innerHTML =
     html || `<p class="empty">${query ? `No drivers match “${esc(query)}”.` : 'No entrants yet. Standings appear here as soon as times are entered.'}</p>`;
 }
