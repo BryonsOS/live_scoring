@@ -65,8 +65,20 @@ main { max-width: 1400px; margin: 0 auto; padding: 12px 16px 48px; }
 .section-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-3); font-weight: 700; margin: 6px 0 4px; }
 
 /* ---------- filters ---------- */
-.filters { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 6px 0 14px; }
-.chips { display: flex; gap: 6px; overflow-x: auto; flex: 1 1 100%; padding-bottom: 2px; scrollbar-width: none; }
+/* Class filter stays pinned under the header so you can switch classes from anywhere on the page. */
+.filters {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 6px 0 14px;
+  position: sticky; top: var(--topbar-h, 64px); z-index: 9; background: var(--bg); padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+/* Wide screens: every class visible at once, wrapping onto extra lines. */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 0; min-width: 0; }
+.filters .search { flex: 0 0 240px; align-self: flex-start; }
+/* Phones: one swipeable row so the pinned bar doesn't cover the standings. */
+@media (max-width: 760px) {
+  .chips { flex: 1 1 100%; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+  .filters .search { flex: 1 1 100%; max-width: none; }
+}
 .chip {
   flex: 0 0 auto; border: 1px solid var(--line); background: var(--card); border-radius: 999px;
   padding: 6px 12px; cursor: pointer; font-size: 0.85rem; font-weight: 600;

@@ -133,7 +133,30 @@ $('chips').addEventListener('click', (e) => {
   selected = btn.dataset.code;
   store.set('ls.class', selected);
   render();
+  // The filter bar is pinned, so bring the newly picked class into view if we're scrolled past it.
+  const pinned = document.querySelector('.topbar').offsetHeight + document.querySelector('.filters').offsetHeight;
+  const top = $('classes').getBoundingClientRect().top + window.scrollY - pinned - 8;
+  if (window.scrollY > top) window.scrollTo({ top, behavior: 'smooth' });
 });
+
+// Pin the filter bar directly under the header, whatever height the header wraps to.
+const setTopbarHeight = () =>
+  document.documentElement.style.setProperty('--topbar-h', `${document.querySelector('.topbar').offsetHeight}px`);
+setTopbarHeight();
+window.addEventListener('resize', setTopbarHeight);
+
+// Mouse wheels only scroll up/down; let them scroll sideways rows (phone-width class bar, latest results).
+for (const el of [$('chips'), $('ticker')]) {
+  el.addEventListener(
+    'wheel',
+    (e) => {
+      if (el.scrollWidth <= el.clientWidth || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    },
+    { passive: false },
+  );
+}
 $('search').addEventListener('input', (e) => {
   query = e.target.value.trim().toLowerCase();
   render();
