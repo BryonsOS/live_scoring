@@ -60,3 +60,14 @@ test('flags bad rows and duplicate cars instead of guessing', () => {
 test('rejects a sheet without the expected headers', () => {
   assert.throws(() => parseResultsSheet([['Name', 'Time'], ['Bob', 10]]), /header row/);
 });
+
+test('a day where a whole class is "Waiver" is reported as waived for that class (rain day)', () => {
+  const p = parseResultsSheet([
+    header,
+    [10, 'A', 'Unlimited', 'N', 'L', null, 1967, 'P', 'F', 'G', 0.4, 6.3, 228, 0.4, 6.4, 224, 'Waiver', 'Waiver', 'Waiver'],
+    [5, 'A', 'Unlimited', 'N', 'C', null, 1933, 'F', 'C', 'B', 0.1, 7.4, 179, null, null, null, 'Waiver', 'Waiver', 'Waiver'],
+    [401, 'R', 'DYO', 'J', 'C', null, 1972, 'P', 'B', 'Y', 0.6, 7.7, 129, 0.6, 7.6, 177, 0.4, 7.5, 180],
+  ]);
+  assert.deepEqual(p.waivers.A, { waived: [3], run: [1, 2] });
+  assert.deepEqual(p.waivers.R, { waived: [], run: [1, 2, 3] });
+});

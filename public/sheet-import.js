@@ -86,6 +86,12 @@ export function parseResultsSheet(rows) {
   const entrants = [];
   const warnings = [];
   const seen = new Map();
+  // Per class and day: how many drivers have "Waiver" vs a real time, to spot rain days.
+  const dayMarks = {};
+  const mark = (code, day, kind) => {
+    const m = ((dayMarks[code] ??= {})[day] ??= { waiver: 0, times: 0 });
+    m[kind]++;
+  };
   for (let r = headerAt + 1; r < rows.length; r++) {
     const row = rows[r] ?? [];
     if (!row.some((c) => text(c) !== '')) continue;
@@ -119,13 +125,17 @@ export function parseResultsSheet(rows) {
     for (const d of days) {
       const c = dayCols[d];
       const vals = ['rt', 'et', 'mph'].map((k) => (c[k] != null ? row[c[k]] : null));
-      if (vals.some(isWaiver)) continue;
+      if (vals.some(isWaiver)) {
+        mark(code, d, 'waiver');
+        continue;
+      }
       const [rt, et, mph] = vals.map(number);
       if (et == null) {
         if (vals.some((v) => text(v) !== '')) warnings.push(`Car #${car} day ${d}: ET "${text(vals[1])}" isn't a number, skipped`);
         continue;
       }
       e.runs.push({ day: d, rt, et, mph });
+      mark(code, d, 'times');
     }
     entrants.push(e);
   }
@@ -133,11 +143,26 @@ export function parseResultsSheet(rows) {
   // Later duplicates win.
   const unique = [...new Map(entrants.map((e) => [e.car_number, e])).values()];
   const classes = [...new Set(unique.map((e) => e.class_code))].sort();
+  // A day counts as waived for a class (e.g. a rain day) when its drivers have "Waiver" there and
+  // nobody in the class has a time; any real time on that day means it is not waived.
+  const waivers = {};
+  for (const [code, perDay] of Object.entries(dayMarks)) {
+    waivers[code] = {
+      waived: days.filter((d) => perDay[d]?.waiver > 0 && !perDay[d]?.times),
+      run: days.filter((d) => perDay[d]?.times > 0),
+    };
+    for (const d of days) {
+      if (perDay[d]?.waiver && perDay[d]?.times) {
+        warnings.push(`Class ${code} day ${d} has both times and "Waiver" cells; treating the day as run`);
+      }
+    }
+  }
   return {
     entrants: unique,
     days,
     dayLocations,
     classes,
+    waivers,
     runCount: unique.reduce((n, e) => n + e.runs.length, 0),
     outCount: unique.filter((e) => e.out).length,
     warnings,

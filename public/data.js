@@ -195,6 +195,8 @@ export function saveClass(input, originalCode) {
   if (originalCode) return run(sb.from('ls_classes').update(c).eq('code', originalCode));
   return run(sb.from('ls_classes').insert({ ...c, sort: input.sort ?? 99 }));
 }
+export const setWaivedDays = (code, days) =>
+  run(sb.from('ls_classes').update({ waived_days: [...new Set(days)].sort((a, b) => a - b) }).eq('code', code));
 export const deleteClass = (code) => run(sb.from('ls_classes').delete().eq('code', code));
 
 export function saveDays(days) {

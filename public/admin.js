@@ -547,6 +547,23 @@ function loadSheetJs() {
 
 let pendingSheet = null;
 
+// Waived days the sheet implies (a whole class marked "Waiver" on a day, e.g. a rain day),
+// compared with what's stored. Returns [{ code, from, to, isNew }] for classes that change.
+function waiverChanges(p) {
+  const eventDays = new Set(state.days.map((d) => d.num));
+  const changes = [];
+  for (const code of p.classes) {
+    const w = p.waivers[code] ?? { waived: [], run: [] };
+    const existing = state.classes.find((c) => c.code === code);
+    const from = existing?.waivedDays ?? [];
+    const to = [...new Set([...from, ...w.waived])].filter((d) => !w.run.includes(d) && eventDays.has(d)).sort((a, b) => a - b);
+    if (from.join() !== to.join()) changes.push({ code, from, to, isNew: !existing });
+  }
+  return changes;
+}
+
+const describeDays = (days) => (days.length ? `day ${days.join(', ')}` : 'no days');
+
 function resetSheet() {
   pendingSheet = null;
   $('sheet-preview').hidden = true;
@@ -607,6 +624,17 @@ function renderSheetPreview(p) {
       })
       .join('')}</tbody>`;
   const notes = [...p.warnings];
+  const changes = waiverChanges(p);
+  if (changes.length) {
+    const byTo = new Map();
+    for (const c of changes) {
+      const key = describeDays(c.to);
+      byTo.set(key, [...(byTo.get(key) ?? []), c.code]);
+    }
+    for (const [days, codes] of byTo) {
+      notes.unshift(`Waived days will be set to ${days} for class ${codes.join(', ')} (taken from the "Waiver" cells in the sheet).`);
+    }
+  }
   const unknown = p.classes.filter((c) => !known.has(c));
   if (unknown.length) notes.unshift(`New class${unknown.length > 1 ? 'es' : ''} ${unknown.join(', ')} will be created. Set waived days on the Classes & days tab afterwards.`);
   const dayNums = new Set(state.days.map((d) => d.num));
@@ -641,7 +669,12 @@ $('sheet-import').addEventListener('click', async () => {
   btn.disabled = true;
   flashMsg('sheet-msg', `Importing ${pendingSheet.entrants.length} drivers…`);
   try {
+    // Un-waive days that now have times before importing (times on waived days are skipped),
+    // then set the rest, including classes the import creates.
+    const changes = waiverChanges(pendingSheet);
+    for (const c of changes.filter((c) => !c.isNew)) await db.setWaivedDays(c.code, c.to);
     const r = await db.importResults(pendingSheet.entrants);
+    for (const c of changes.filter((c) => c.isNew)) await db.setWaivedDays(c.code, c.to);
     const skipped = r.skipped ?? [];
     $('sheet-msg').textContent = '';
     $('sheet-result').innerHTML = `<div class="saved-card"><div><b>Imported ${esc(pendingSheet.sheetName)}</b><br>
