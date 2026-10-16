@@ -1,79 +1,77 @@
 # Live Scoring
 
-Live results for drag-and-drive events like Sick Week. Officials type each driver's time into the
+Live results for drag-and-drive events like Sick Week. Officials enter each driver's time on the
 **admin page**, and the **public standings page** updates on every phone and screen within about a
 second. There's no "close the event" step to get standings.
 
-- **Public page** (`/`): standings for every class, a "latest results" strip, a class filter and a
-  car #/driver search. It works on phones (tap a row to see each day). The live indicator turns amber
-  if the connection drops, and the page reconnects on its own.
-- **Admin page** (`/admin`, password protected):
+It's a static site (host it on Netlify) backed by **Supabase** (the `ls_*` tables in the main
+Sick Town Hall project). No server of our own runs anywhere.
+
+## Pages
+
+- **Public** (`/`): standings for every class, a "latest results" strip, a class filter, car # and
+  driver search, and a CSV download. It works on phones (tap a row to see each day).
+  - The badge reads **LIVE** when updates are instant. It switches to **Auto-refresh** if live
+    updates aren't available, for example when the Supabase free tier's ~200 simultaneous live
+    connections are used up. The page then reloads standings every 15 seconds.
+- **Admin** (`/admin`): sign in with an email on the admin list, using a password or an emailed link.
   - **Enter times**: pick the day, type the car #, check the driver card, then RT → ET → MPH with
     <kbd>Enter</kbd>. **No time (penalty)** records the penalty values (1.000 / 20.000 / 50.00 by
     default). Re-entering a car for the same day replaces its time. Recent entries can be edited or
     deleted.
   - **Entrants**: add or edit drivers, mark them **Out**, or paste a spreadsheet/CSV to import them.
-  - **Classes & days**: tracks/locations per day, classes, and which days each class **waives**.
-  - **Settings**: event name and penalty values. You can also download a CSV of the standings.
+  - **Classes & days**: tracks per day, classes, and which days each class **waives**.
+  - **Settings**: event name, penalty values, CSV export, and the **admin list**.
 
 ## Scoring rules
 
 These match the published Sick Week 2026 results (checked against the day 5 PDF for classes A, N,
-P, R and S):
+P, R and S). The logic is in `public/scoring.js`.
 
 1. Each class counts every day except the days it waives. In 2026 most classes waived day 3; DYO
    (R) and Sick Bulls Eye Challenge (S) ran all five.
 2. A driver's average RT / ET / MPH covers the counted days they have a time for.
-3. Ranking: **lowest average ET** wins, with higher average MPH breaking ties. During the week,
-   drivers with more counted days completed rank ahead of drivers with fewer, so a driver who has
-   run one fast day can't jump someone who has run three.
+3. **Lowest average ET** wins, with higher average MPH breaking ties. During the week, drivers with
+   more counted days completed rank ahead of drivers with fewer.
 4. Drivers marked **Out** go to the bottom of their class without a position.
 
-The rules live in `src/scoring.js` if they need to change, for example to score a class on dial-in
-accuracy instead of ET.
+## Supabase
 
-## Running it
+The schema lives in `supabase/migrations/` and has already been applied to the project, **except
+`20261016000100_ls_save_days.sql`**. Paste that file into **Dashboard → SQL Editor → Run** once.
+Until then, the **Save days** button reports that a database update is needed. Everything else
+works.
 
-You need Node.js 22.13 or newer. There are no packages to install, because it uses Node's built-in
-SQLite.
+How it's secured:
 
-```bash
-ADMIN_PASSWORD=choose-something npm start
-# public:  http://localhost:3000/
-# admin:   http://localhost:3000/admin
-```
+- Anyone can **read** standings (`ls_settings`, `ls_days`, `ls_classes`, `ls_entrants`, `ls_runs`,
+  and the `ls_snapshot()` function).
+- Only signed-in users whose email is in **`ls_admins`** can **write**. Row level security enforces
+  this, so the public key in `public/config.js` can't change anything. Admins are managed on the
+  Settings tab, and the last admin can't be removed.
+- Every change is written to `ls_audit` with the admin's email, and each time records who entered
+  it (`ls_runs.updated_by`).
 
-To try it with made-up drivers (admin password `demo`):
+### Sign-in setup (one time)
 
-```bash
-npm run demo
-```
+- **Emailed links**: in **Authentication → URL Configuration**, add the site's address (for example
+  `https://<your-site>.netlify.app/admin`) to **Redirect URLs**. Otherwise the link sends people to
+  the project's default site.
+- **Passwords**: people who already have a login in this Supabase project (dashboard, etc.) can
+  use that password. Anyone else can use the emailed link, which creates their login the first
+  time. They still need to be on the admin list.
 
-Run the tests with `npm test`.
+## Deploying (Netlify)
 
-### Settings (environment variables)
+Create a Netlify site from this repo. `netlify.toml` already says to publish `public/` with no
+build step, and maps `/admin` to the admin page.
 
-| Variable          | Default                  | Purpose                                          |
-| ----------------- | ------------------------ | ------------------------------------------------ |
-| `ADMIN_PASSWORD`  | random, printed at start | Password for `/admin`                            |
-| `PORT`            | `3000`                   | HTTP port                                        |
-| `DB_PATH`         | `data/live_scoring.db`   | SQLite file. Keep it on persistent storage       |
-| `SECURE_COOKIES`  | off                      | Set to `1` when served over HTTPS                |
-
-### Deploying
-
-The app is one small Node process with one SQLite file. Any host that runs a long-lived Node or
-Docker app with a persistent disk will work, such as Render, Railway, Fly.io or a small VPS. Mount
-the disk where `DB_PATH` points (the Dockerfile uses `/data`), set `ADMIN_PASSWORD`, and set
-`SECURE_COOKIES=1` behind HTTPS.
+## Local preview
 
 ```bash
-docker build -t live-scoring .
-docker run -p 3000:3000 -v live-scoring-data:/data -e ADMIN_PASSWORD=choose-something live-scoring
+npm run dev    # http://localhost:8080 (uses the real Supabase project)
+npm test       # scoring and CSV tests
 ```
-
-Netlify-style static hosting **won't** work for this, because the server has to stay running to
-push updates to viewers.
 
 ## Importing entrants
 
@@ -86,17 +84,3 @@ ones.
 Car #,Class,First Name,Last Name,Year,Make,Model,Color
 401,A,Joshua,Chechak,1972,Plymouth,Barracuda,Yellow
 ```
-
-## API
-
-| Method | Path                         | Notes                                               |
-| ------ | ---------------------------- | --------------------------------------------------- |
-| GET    | `/api/standings`             | Full standings JSON                                 |
-| GET    | `/api/stream`                | Server-Sent Events, sends a `standings` event on every change |
-| GET    | `/api/standings.csv`         | Standings export                                    |
-| POST   | `/api/login`                 | `{ "password": "…" }` sets the admin cookie         |
-| PUT    | `/api/admin/runs`            | `{ carNumber, day, rt, et, mph }` or `{ carNumber, day, penalty: true }` |
-| …      | `/api/admin/*`               | Entrants, classes, days, settings (see `src/app.js`) |
-
-Every change is also written to an `audit` table in the database, so there's a record of which time
-was changed and when.

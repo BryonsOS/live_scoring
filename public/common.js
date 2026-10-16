@@ -28,11 +28,23 @@ export const store = {
   },
 };
 
-// Opens the live standings stream; EventSource reconnects by itself.
-export function subscribe(onData, onStatus) {
-  const es = new EventSource('/api/stream');
-  es.addEventListener('standings', (e) => onData(JSON.parse(e.data)));
-  es.onopen = () => onStatus(true);
-  es.onerror = () => onStatus(false);
-  return es;
+export function setLiveBadge(status) {
+  const el = document.getElementById('live');
+  const text = document.getElementById('live-text');
+  el.className = `live ${status === 'live' ? 'on' : 'off'}`;
+  text.textContent = { live: 'LIVE', polling: 'Auto-refresh', offline: 'Reconnecting…' }[status];
+  el.title = {
+    live: 'Updates appear the moment a time is entered',
+    polling: 'Live connection unavailable; refreshing every few seconds',
+    offline: 'Cannot reach the results server; retrying',
+  }[status];
+}
+
+export function downloadFile(name, text, type = 'text/csv') {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = Object.assign(document.createElement('a'), { href: url, download: name });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

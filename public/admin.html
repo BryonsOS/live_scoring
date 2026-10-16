@@ -17,18 +17,25 @@
         <div class="sub"><a href="/" target="_blank" rel="noopener">Open public standings ↗</a></div>
       </div>
       <div class="live" id="live"><span class="dot"></span><span id="live-text"></span></div>
-      <button class="btn ghost light" id="logout" hidden>Log out</button>
+      <span class="sub" id="who"></span>
+      <button class="btn ghost light" id="logout" hidden>Sign out</button>
     </div>
   </header>
 
   <main>
     <!-- Login -->
     <section id="login-view" class="panel narrow" hidden>
-      <h2>Admin login</h2>
+      <h2>Admin sign in</h2>
       <form id="login-form">
-        <label>Password <input type="password" id="password" autocomplete="current-password" required autofocus /></label>
-        <button class="btn primary" type="submit">Log in</button>
+        <label>Email <input type="email" id="email" autocomplete="username" required autofocus /></label>
+        <label>Password <input type="password" id="password" autocomplete="current-password" /></label>
+        <div class="actions">
+          <button class="btn primary" type="submit">Sign in</button>
+          <button class="btn ghost" type="button" id="send-link">Email me a sign-in link</button>
+        </div>
+        <p class="hint">No password? Use the sign-in link. Only emails on the admin list can enter times.</p>
         <p class="error" id="login-error"></p>
+        <p class="ok" id="login-info"></p>
       </form>
     </section>
 
@@ -151,12 +158,23 @@
             <p class="msg" id="settings-msg" role="status"></p>
           </form>
           <hr />
-          <p><a class="btn ghost" href="/api/standings.csv">Download standings CSV</a></p>
+          <p><button class="btn ghost" type="button" id="csv">Download standings CSV</button></p>
+        </div>
+        <div class="panel narrow">
+          <h3>Admins</h3>
+          <p class="hint">People who can enter times and change setup. They sign in with this email (password or emailed link).</p>
+          <table class="admin-table" id="admins-table"></table>
+          <form id="admin-form" class="actions" style="margin-top:10px">
+            <input type="email" id="admin-email" placeholder="name@example.com" required style="flex:1;margin:0" />
+            <button class="btn primary" type="submit">Add admin</button>
+          </form>
+          <p class="msg" id="admins-msg" role="status"></p>
         </div>
       </section>
     </div>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
   <script type="module" src="/admin.js"></script>
 </body>
 </html>

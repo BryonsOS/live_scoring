@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeStandings } from '../src/scoring.js';
+import { computeStandings } from '../public/scoring.js';
 
 const days = [1, 2, 3, 4, 5].map((num) => ({ num, location: '' }));
 const classes = [

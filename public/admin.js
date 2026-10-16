@@ -1,24 +1,14 @@
-import { esc, fmt, timeAgo, store, subscribe } from './common.js';
+import { esc, fmt, timeAgo, store, setLiveBadge, downloadFile } from './common.js';
+import { csvToEntrants, standingsToCsv } from './csv.js';
+import * as db from './data.js';
 
 const $ = (id) => document.getElementById(id);
 let state = null;
 let day = store.get('ls.admin.day', 1);
 let editingEntrantId = null;
-let stream = null;
+let stopWatching = null;
 
 // ---------- helpers ----------
-async function api(method, path, body) {
-  const res = await fetch(path, {
-    method,
-    headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const json = await res.json().catch(() => ({}));
-  if (res.status === 401 && path.startsWith('/api/admin')) showLogin();
-  if (!res.ok) throw new Error(json.error ?? `Request failed (${res.status})`);
-  return json;
-}
-
 function flashMsg(id, text, ok = true) {
   const el = $(id);
   el.textContent = text;
@@ -32,8 +22,8 @@ const vehicle = (e) => [e.year, e.make, e.model, e.color].filter(Boolean).join('
 const classOf = (code) => state.classes.find((c) => c.code === code);
 const entrantByCar = (car) => state.entrants.find((e) => e.car_number === String(car).trim());
 
-async function refresh() {
-  state = await api('GET', '/api/admin/state');
+async function refresh(snapshot) {
+  state = snapshot ?? (await db.fetchSnapshot());
   if (!state.days.some((d) => d.num === day)) day = state.days[0]?.num ?? 1;
   $('event-name').textContent = `${state.event.eventName} · Admin`;
   renderDayPicker();
@@ -46,46 +36,71 @@ async function refresh() {
 }
 
 // ---------- auth ----------
-function showLogin() {
+// message undefined = keep whatever is shown (e.g. the "not on the admin list" note survives
+// the sign-out that follows it).
+function showLogin(message) {
   $('login-view').hidden = false;
   $('app-view').hidden = true;
   $('logout').hidden = true;
-  stream?.close();
-  stream = null;
-  $('password').focus();
+  if (message !== undefined) $('login-error').textContent = message;
+  stopWatching?.();
+  stopWatching = null;
+  $('email').focus();
 }
 
 async function showApp() {
   $('login-view').hidden = true;
   $('app-view').hidden = false;
   $('logout').hidden = false;
-  await refresh();
+  if (stopWatching) return;
+  // Every change (from this screen or another official's) refreshes the page.
+  stopWatching = db.watch((snap) => refresh(snap), setLiveBadge);
+  renderAdmins();
   $('run-car').focus();
-  // Another admin (or another tab) saving a time refreshes this screen too.
-  stream = subscribe(
-    () => refresh().catch(() => {}),
-    (ok) => {
-      $('live').className = `live ${ok ? 'on' : 'off'}`;
-      $('live-text').textContent = ok ? 'LIVE' : 'Reconnecting…';
-    },
-  );
+}
+
+// Signed in is not enough: the email must be on the admin list (ls_admins).
+async function checkAccess() {
+  const email = await db.currentEmail();
+  $('who').textContent = email ?? '';
+  if (!email) return showLogin();
+  let ok = false;
+  try {
+    ok = await db.isAdmin();
+  } catch (err) {
+    return showLogin(err.message);
+  }
+  if (ok) return showApp();
+  await db.signOut();
+  showLogin(`${email} isn't on the admin list. Ask an existing admin to add it under Settings.`);
 }
 
 $('login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   $('login-error').textContent = '';
   try {
-    await api('POST', '/api/login', { password: $('password').value });
-    $('password').value = '';
-    await showApp();
+    await db.signInWithPassword($('email').value.trim(), $('password').value);
+    $('password').value = ''; // the auth listener below takes it from here
+  } catch (err) {
+    $('login-error').textContent = err.message;
+  }
+});
+
+$('send-link').addEventListener('click', async () => {
+  const email = $('email').value.trim();
+  if (!email) return ($('login-error').textContent = 'Enter your email first');
+  try {
+    await db.sendLoginLink(email);
+    $('login-error').textContent = '';
+    $('login-info').textContent = `Sign-in link sent to ${email}. Open it on this device.`;
   } catch (err) {
     $('login-error').textContent = err.message;
   }
 });
 
 $('logout').addEventListener('click', async () => {
-  await api('POST', '/api/logout');
-  showLogin();
+  await db.signOut();
+  showLogin('');
 });
 
 // ---------- tabs ----------
@@ -170,7 +185,7 @@ async function submitRun(penalty) {
     if (!confirm(`Record NO TIME penalty for #${carNumber} ${e ? fullName(e) : ''} on day ${day}?`)) return;
   }
   try {
-    await api('PUT', '/api/admin/runs', body);
+    await db.saveRun(body);
     flashMsg('run-msg', penalty ? `Penalty saved for #${carNumber}` : `Saved #${carNumber}: ${body.et} @ ${body.mph || '—'}`);
     resetRunForm();
     await refresh();
@@ -186,17 +201,17 @@ $('run-form').addEventListener('submit', (e) => {
 $('run-penalty').addEventListener('click', () => submitRun(true));
 
 function renderRecent() {
-  const rows = state.recent;
+  const rows = state.recent.slice(0, 40);
   $('recent-table').innerHTML = rows.length
     ? `<thead><tr><th>Car</th><th>Driver</th><th>Day</th><th class="r">RT</th><th class="r">ET</th><th class="r">MPH</th><th>When</th><th></th></tr></thead><tbody>
       ${rows
         .map(
-          (r) => `<tr><td><b>#${esc(r.car_number)}</b> <span class="muted">${esc(r.class_code)}</span></td>
-          <td>${esc(`${r.first_name} ${r.last_name}`)}</td><td>${r.day}</td>
+          (r) => `<tr><td><b>#${esc(r.carNumber)}</b> <span class="muted">${esc(r.classCode)}</span></td>
+          <td>${esc(r.name)}</td><td>${r.day}</td>
           <td class="r num">${fmt(r.rt, 3)}</td><td class="r num">${fmt(r.et, 3)}${r.penalty ? ' <span class="tag pen">NO TIME</span>' : ''}</td><td class="r num">${fmt(r.mph, 2)}</td>
-          <td class="muted nowrap">${timeAgo(r.updated_at)}</td>
-          <td class="nowrap"><button class="btn small ghost" data-edit-run="${r.entrant_id}:${r.day}">Edit</button>
-            <button class="btn small danger" data-del-run="${r.entrant_id}:${r.day}">Delete</button></td></tr>`,
+          <td class="muted nowrap">${timeAgo(r.at)}</td>
+          <td class="nowrap"><button class="btn small ghost" data-edit-run="${r.entrantId}:${r.day}">Edit</button>
+            <button class="btn small danger" data-del-run="${r.entrantId}:${r.day}">Delete</button></td></tr>`,
         )
         .join('')}</tbody>`
     : '<tbody><tr><td class="muted">No times entered yet.</td></tr></tbody>';
@@ -223,7 +238,7 @@ $('recent-table').addEventListener('click', async (e) => {
     const ent = state.entrants.find((x) => x.id === id);
     if (!confirm(`Delete day ${d} time for #${ent.car_number} ${fullName(ent)}?`)) return;
     try {
-      await api('DELETE', `/api/admin/runs/${id}/${d}`);
+      await db.deleteRun(id, d);
       await refresh();
     } catch (err) {
       flashMsg('run-msg', err.message, false);
@@ -292,8 +307,7 @@ $('entrant-form').addEventListener('submit', async (ev) => {
   const body = Object.fromEntries(['car_number', 'class_code', 'first_name', 'last_name', 'year', 'make', 'model', 'color'].map((n) => [n, f.elements[n].value]));
   body.out = f.elements.out.checked;
   try {
-    if (editingEntrantId) await api('PUT', `/api/admin/entrants/${editingEntrantId}`, body);
-    else await api('POST', '/api/admin/entrants', body);
+    await db.saveEntrant(body, editingEntrantId);
     flashMsg('entrant-msg', `${editingEntrantId ? 'Updated' : 'Added'} #${body.car_number}`);
     const cls = body.class_code;
     setEntrantForm(null);
@@ -315,7 +329,7 @@ $('entrant-table').addEventListener('click', async (ev) => {
     const e = state.entrants.find((x) => x.id === Number(del.dataset.del));
     if (!confirm(`Delete #${e.car_number} ${fullName(e)} and all of their times?`)) return;
     try {
-      await api('DELETE', `/api/admin/entrants/${e.id}`);
+      await db.deleteEntrant(e.id);
       await refresh();
     } catch (err) {
       flashMsg('entrant-msg', err.message, false);
@@ -327,7 +341,7 @@ $('entrant-table').addEventListener('change', async (ev) => {
   const box = ev.target.closest('[data-out]');
   if (!box) return;
   try {
-    await api('PUT', `/api/admin/entrants/${box.dataset.out}/out`, { out: box.checked });
+    await db.setOut(Number(box.dataset.out), box.checked);
     await refresh();
   } catch (err) {
     box.checked = !box.checked;
@@ -342,7 +356,7 @@ $('import-file').addEventListener('change', async (e) => {
 
 $('import-go').addEventListener('click', async () => {
   try {
-    const r = await api('POST', '/api/admin/entrants/import', { csv: $('import-text').value });
+    const r = await db.importEntrants(csvToEntrants($('import-text').value));
     flashMsg('import-msg', `Imported: ${r.added} added, ${r.updated} updated`);
     $('import-text').value = '';
     await refresh();
@@ -415,7 +429,7 @@ $('days-save').addEventListener('click', async () => {
   const lost = state.runs.filter((r) => removed.some((d) => d.num === r.day)).length;
   if (lost && !confirm(`Removing day(s) ${removed.map((d) => d.num).join(', ')} will delete ${lost} entered time(s). Continue?`)) return;
   try {
-    await api('PUT', '/api/admin/days', { days: draftDays });
+    await db.saveDays(draftDays);
     daysDirty = false;
     flashMsg('days-msg', 'Days saved');
     await refresh();
@@ -435,8 +449,7 @@ $('classes-table').addEventListener('click', async (e) => {
       waivedDays: [...row.querySelectorAll('[name=waive]:checked')].map((b) => Number(b.value)),
     };
     try {
-      if (original) await api('PUT', `/api/admin/classes/${encodeURIComponent(original)}`, body);
-      else await api('POST', '/api/admin/classes', body);
+      await db.saveClass({ ...body, sort: state.classes.length }, original);
       document.activeElement.blur();
       flashMsg('classes-msg', `Saved class ${body.code.toUpperCase()}`);
       await refresh();
@@ -446,7 +459,7 @@ $('classes-table').addEventListener('click', async (e) => {
   } else if (e.target.closest('[data-class-del]')) {
     if (!confirm(`Delete class ${original}?`)) return;
     try {
-      await api('DELETE', `/api/admin/classes/${encodeURIComponent(original)}`);
+      await db.deleteClass(original);
       document.activeElement.blur();
       await refresh();
     } catch (err) {
@@ -460,16 +473,16 @@ function renderSettings() {
   const f = $('settings-form');
   if (f.contains(document.activeElement)) return;
   f.elements.eventName.value = state.event.eventName;
-  f.elements.penaltyRt.value = state.event.penaltyRt;
-  f.elements.penaltyEt.value = state.event.penaltyEt;
-  f.elements.penaltyMph.value = state.event.penaltyMph;
+  f.elements.penaltyRt.value = fmt(state.event.penaltyRt, 3);
+  f.elements.penaltyEt.value = fmt(state.event.penaltyEt, 3);
+  f.elements.penaltyMph.value = fmt(state.event.penaltyMph, 2);
 }
 
 $('settings-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const f = e.target;
   try {
-    await api('PUT', '/api/admin/settings', {
+    await db.saveSettings({
       eventName: f.elements.eventName.value,
       penaltyRt: f.elements.penaltyRt.value,
       penaltyEt: f.elements.penaltyEt.value,
@@ -483,6 +496,52 @@ $('settings-form').addEventListener('submit', async (e) => {
   }
 });
 
+// ---------- admins ----------
+async function renderAdmins() {
+  try {
+    const admins = await db.listAdmins();
+    $('admins-table').innerHTML = `<tbody>${admins
+      .map((a) => `<tr><td>${esc(a.email)}</td><td class="r"><button class="btn small danger" data-admin-del="${esc(a.email)}">Remove</button></td></tr>`)
+      .join('')}</tbody>`;
+  } catch (err) {
+    flashMsg('admins-msg', err.message, false);
+  }
+}
+
+$('admin-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = $('admin-email').value;
+  try {
+    await db.addAdmin(email);
+    $('admin-email').value = '';
+    flashMsg('admins-msg', `Added ${email.trim().toLowerCase()}`);
+    renderAdmins();
+  } catch (err) {
+    flashMsg('admins-msg', err.message, false);
+  }
+});
+
+$('admins-table').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-admin-del]');
+  if (!btn || !confirm(`Remove ${btn.dataset.adminDel} from admins?`)) return;
+  try {
+    await db.removeAdmin(btn.dataset.adminDel);
+    renderAdmins();
+  } catch (err) {
+    flashMsg('admins-msg', err.message, false);
+  }
+});
+
+$('csv').addEventListener('click', () => {
+  downloadFile(`${state.event.eventName.replace(/[^\w-]+/g, '_')}_standings.csv`, standingsToCsv(state.days, state.standings));
+});
+
 // ---------- boot ----------
-const { authed } = await api('GET', '/api/session');
-authed ? showApp() : showLogin();
+// Fires once on load with the saved session, then on every sign-in/out. Deferred because
+// supabase-js must not be called from inside its own auth callback.
+let lastEmail;
+db.onAuthChange((email) => {
+  if (email === lastEmail) return; // token refreshes
+  lastEmail = email;
+  setTimeout(checkAccess, 0);
+});

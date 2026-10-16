@@ -76,3 +76,25 @@ export function toCsv(rows) {
   };
   return rows.map((r) => r.map(esc).join(',')).join('\r\n') + '\r\n';
 }
+
+// Standings export laid out like the published results sheet.
+export function standingsToCsv(days, standings) {
+  const head = ['Place', 'Car #', 'Class', 'Class Name', 'First Name', 'Last Name', 'Out', 'Year', 'Make', 'Model', 'Color'];
+  for (const d of days) head.push(`RT - ${d.num}`, `ET - ${d.num}`, `MPH - ${d.num}`);
+  head.push('Avg. R/T', 'Avg. ET', 'Avg. MPH');
+  const rows = [head];
+  for (const cls of standings) {
+    for (const r of cls.rows) {
+      const line = [r.rank ?? '', r.carNumber, cls.code, cls.name, r.firstName, r.lastName, r.out ? 'Y' : '', r.year, r.make, r.model, r.color];
+      for (const d of days) {
+        const x = r.results[d.num];
+        if (x?.waived) line.push('Waiver', 'Waiver', 'Waiver');
+        else if (x) line.push(x.rt?.toFixed(3) ?? '', x.et?.toFixed(3) ?? '', x.mph?.toFixed(2) ?? '');
+        else line.push('', '', '');
+      }
+      line.push(r.avgRt ?? '', r.avgEt ?? '', r.avgMph ?? '');
+      rows.push(line);
+    }
+  }
+  return toCsv(rows);
+}

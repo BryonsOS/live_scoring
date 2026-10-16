@@ -1,4 +1,6 @@
-import { esc, fmt, timeAgo, store, subscribe } from './common.js';
+import { esc, fmt, timeAgo, store, setLiveBadge, downloadFile } from './common.js';
+import { watch } from './data.js';
+import { standingsToCsv } from './csv.js';
 
 const $ = (id) => document.getElementById(id);
 let data = null;
@@ -44,6 +46,7 @@ function renderChips() {
 
 function renderTicker(fresh) {
   $('ticker').innerHTML = data.recent
+    .slice(0, 12)
     .map(
       (r, i) => `<div class="tick${fresh && i === 0 ? ' fresh' : ''}">
         <b>#${esc(r.carNumber)}</b> ${esc(r.name)} <span class="class-meta">${esc(r.classCode)} · Day ${r.day}</span>
@@ -123,10 +126,6 @@ function onData(next) {
   render(changed, fresh);
 }
 
-function onStatus(ok) {
-  $('live').className = `live ${ok ? 'on' : 'off'}`;
-  $('live-text').textContent = ok ? 'LIVE' : 'Reconnecting…';
-}
 
 $('chips').addEventListener('click', (e) => {
   const btn = e.target.closest('.chip');
@@ -149,4 +148,10 @@ $('classes').addEventListener('click', (e) => {
 // Keep "x seconds ago" labels current between updates.
 setInterval(() => data && renderTicker(false), 30_000);
 
-subscribe(onData, onStatus);
+$('csv').addEventListener('click', (e) => {
+  e.preventDefault();
+  if (!data) return;
+  downloadFile(`${data.event.eventName.replace(/[^\w-]+/g, '_')}_standings.csv`, standingsToCsv(data.days, data.standings));
+});
+
+watch(onData, setLiveBadge);
