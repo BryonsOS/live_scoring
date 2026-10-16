@@ -25,7 +25,7 @@ const entrantByCar = (car) => state.entrants.find((e) => e.car_number === String
 async function refresh(snapshot) {
   state = snapshot ?? (await db.fetchSnapshot());
   if (!state.days.some((d) => d.num === day)) day = state.days[0]?.num ?? 1;
-  $('event-name').textContent = `${state.event.eventName} · Admin`;
+  $('event-name').textContent = state.event.eventName;
   renderDayPicker();
   renderDriverCard();
   renderRecent();
@@ -154,6 +154,7 @@ function renderDriverCard() {
   card.innerHTML = `<div class="name">#${esc(e.car_number)} ${esc(fullName(e))}${e.out ? ' <span class="tag out">OUT</span>' : ''}</div>
     <div>${esc(cls ? `${cls.code} · ${cls.name}` : e.class_code)}</div>
     <div class="muted">${esc(vehicle(e))}</div>
+    ${e.out ? '<div class="existing">This driver is marked OUT. Their times still save but they stay unranked.</div>' : ''}
     ${waived ? `<div class="existing">Class ${esc(cls.code)} waives day ${day} — no time needed.</div>` : ''}
     ${existing ? `<div class="existing">Day ${day} already has ${existing.penalty ? 'a NO TIME penalty' : `${fmt(existing.et, 3)} @ ${fmt(existing.mph, 2)}`} — submitting will replace it.</div>` : ''}`;
   submit.disabled = penalty.disabled = !!waived;
@@ -184,14 +185,43 @@ async function submitRun(penalty) {
     const e = entrantByCar(carNumber);
     if (!confirm(`Record NO TIME penalty for #${carNumber} ${e ? fullName(e) : ''} on day ${day}?`)) return;
   }
+  const entrant = entrantByCar(carNumber);
+  const previous = entrant && state.runs.find((r) => r.entrant_id === entrant.id && r.day === day);
   try {
     await db.saveRun(body);
-    flashMsg('run-msg', penalty ? `Penalty saved for #${carNumber}` : `Saved #${carNumber}: ${body.et} @ ${body.mph || '—'}`);
+    showSaved(entrant, day, body, previous ? { ...previous } : null);
     resetRunForm();
     await refresh();
   } catch (err) {
     flashMsg('run-msg', err.message, false);
   }
+}
+
+// Confirmation card for the last save, with Undo (restores the old time, or removes a new one).
+let undoTimer = null;
+function showSaved(entrant, savedDay, body, previous) {
+  const el = $('run-saved');
+  const what = body.penalty ? 'NO TIME penalty' : `${body.et}${body.mph ? ` @ ${body.mph}` : ''}${body.rt ? ` · RT ${body.rt}` : ''}`;
+  el.innerHTML = `<div><b>Saved #${esc(entrant.car_number)} ${esc(fullName(entrant))}</b> · Day ${savedDay}<br>
+    <span class="num">${esc(what)}</span>${previous ? ' <span class="muted">(replaced an earlier time)</span>' : ''}</div>
+    <button type="button" class="btn small ghost" id="undo-run">Undo</button>`;
+  el.hidden = false;
+  clearTimeout(undoTimer);
+  undoTimer = setTimeout(() => (el.hidden = true), 20_000);
+  $('undo-run').onclick = async () => {
+    try {
+      if (previous) {
+        await db.saveRun({ carNumber: entrant.car_number, day: savedDay, rt: previous.rt, et: previous.et, mph: previous.mph, penalty: previous.penalty });
+      } else {
+        await db.deleteRun(entrant.id, savedDay);
+      }
+      el.hidden = true;
+      flashMsg('run-msg', `Undone: #${entrant.car_number} day ${savedDay} ${previous ? 'restored' : 'removed'}`);
+      await refresh();
+    } catch (err) {
+      flashMsg('run-msg', err.message, false);
+    }
+  };
 }
 
 $('run-form').addEventListener('submit', (e) => {

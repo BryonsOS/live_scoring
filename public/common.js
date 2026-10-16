@@ -5,6 +5,7 @@ export const fmt = (n, places) => (n == null || n === '' ? '—' : Number(n).toF
 
 export const timeAgo = (iso) => {
   const s = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
+  if (s < 5) return 'just now';
   if (s < 60) return `${s}s ago`;
   if (s < 3600) return `${Math.floor(s / 60)}m ago`;
   return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });

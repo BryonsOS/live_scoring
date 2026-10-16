@@ -3,32 +3,46 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#c8102e" />
-  <title>Live Results</title>
+  <meta name="theme-color" content="#141414" />
+  <meta name="description" content="Live Sick Week standings, updated after every pass." />
+  <title>Live Results · Sick Week</title>
+  <link rel="icon" type="image/png" href="/img/favicon.png" />
+  <link rel="apple-touch-icon" href="/img/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&display=swap" />
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
   <header class="topbar">
     <div class="topbar-inner">
-      <div>
-        <h1 id="event-name">Live Results</h1>
-        <div class="sub" id="updated">Connecting…</div>
+      <a class="brand" href="/">
+        <img src="/img/sickweek-2027.png" alt="Sick Week 2027" />
+        <div>
+          <div class="eyebrow">Live results</div>
+          <h1 id="event-name">Sick Week</h1>
+        </div>
+      </a>
+      <div class="status">
+        <span class="updated" id="updated">Connecting…</span>
+        <div class="live" id="live"><span class="dot"></span><span id="live-text">Connecting</span></div>
       </div>
-      <div class="live" id="live"><span class="dot"></span><span id="live-text">Connecting</span></div>
     </div>
   </header>
 
   <main>
-    <div class="section-label">Latest results</div>
-    <div class="ticker" id="ticker"></div>
+    <div class="latest">
+      <div class="latest-label">Latest</div>
+      <div class="ticker" id="ticker"></div>
+    </div>
 
     <div class="filters">
       <div class="chips" id="chips" role="toolbar" aria-label="Filter by class"></div>
-      <input class="search" id="search" type="search" placeholder="Search car # or driver" aria-label="Search car number or driver" />
+      <input class="search" id="search" type="search" placeholder="Car # or driver" aria-label="Search car number or driver" />
     </div>
 
-    <div id="classes"></div>
-    <p class="footer-note">Standings update automatically after every submitted time. Ranked by average ET over completed counted days.
+    <div id="classes"><p class="empty">Loading standings…</p></div>
+    <p class="footer-note">Standings update automatically after every submitted time · Ranked by average ET over counted days ·
       <a href="#" id="csv">Download CSV</a></p>
   </main>
 
