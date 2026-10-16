@@ -150,6 +150,7 @@ export const signInWithPassword = (email, password) => run(sb.auth.signInWithPas
 export const sendLoginLink = (email) =>
   run(sb.auth.signInWithOtp({ email, options: { emailRedirectTo: `${location.origin}/admin` } }));
 export const signOut = () => sb.auth.signOut();
+export const changePassword = (password) => run(sb.auth.updateUser({ password }));
 export const onAuthChange = (cb) => sb.auth.onAuthStateChange((_event, session) => cb(session?.user?.email ?? null));
 
 // ---------- writing (admins only; enforced by the database) ----------

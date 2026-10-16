@@ -161,6 +161,15 @@
           <p><button class="btn ghost" type="button" id="csv">Download standings CSV</button></p>
         </div>
         <div class="panel narrow">
+          <h3>Your password</h3>
+          <form id="password-form" autocomplete="off">
+            <label>New password <input type="password" id="new-password" autocomplete="new-password" minlength="8" required /></label>
+            <label>Confirm new password <input type="password" id="new-password-2" autocomplete="new-password" minlength="8" required /></label>
+            <button class="btn primary" type="submit">Change password</button>
+            <p class="msg" id="password-msg" role="status"></p>
+          </form>
+        </div>
+        <div class="panel narrow">
           <h3>Admins</h3>
           <p class="hint">People who can enter times and change setup. They sign in with this email (password or emailed link).</p>
           <table class="admin-table" id="admins-table"></table>

@@ -496,6 +496,20 @@ $('settings-form').addEventListener('submit', async (e) => {
   }
 });
 
+// ---------- your password ----------
+$('password-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const pw = $('new-password').value;
+  if (pw !== $('new-password-2').value) return flashMsg('password-msg', "Passwords don't match", false);
+  try {
+    await db.changePassword(pw);
+    e.target.reset();
+    flashMsg('password-msg', 'Password changed');
+  } catch (err) {
+    flashMsg('password-msg', err.message, false);
+  }
+});
+
 // ---------- admins ----------
 async function renderAdmins() {
   try {
