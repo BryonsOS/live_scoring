@@ -20,7 +20,10 @@ Sick Town Hall project). No server of our own runs anywhere.
     default). Re-entering a car for the same day replaces its time. Recent entries can be edited or
     deleted.
   - **Upload spreadsheet**: upload the end-of-day Excel results sheet (.xlsx, .xls or CSV, same
-    layout as the printed results). It previews drivers, times and anything odd, then adds or
+    layout as the printed results). The sheet decides the event's days: its ET - 1, ET - 2…
+    columns set how many days there are (days it doesn't have are removed), and the track names
+    above them set each day's location. A day where a whole class says "Waiver" or "Canceled" is
+    waived for that class. Use Settings → Clear results between events. It previews drivers, times and anything odd, then adds or
     updates every driver and time in one go. It matches drivers by car number, deletes nothing,
     and skips "Waiver" cells. The public page updates the moment it's imported.
   - **Entrants**: add or edit drivers, mark them **Out**, or paste a spreadsheet/CSV to import them.
@@ -41,10 +44,7 @@ P, R and S). The logic is in `public/scoring.js`.
 
 ## Supabase
 
-The schema lives in `supabase/migrations/` and has already been applied to the project, **except
-`20261016000100_ls_save_days.sql`**. Paste that file into **Dashboard → SQL Editor → Run** once.
-Until then, the **Save days** button reports that a database update is needed. Everything else
-works.
+The schema lives in `supabase/migrations/` and has all been applied to the project.
 
 How it's secured:
 

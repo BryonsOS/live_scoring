@@ -463,6 +463,7 @@ $('days-save').addEventListener('click', async () => {
   if (lost && !confirm(`Removing day(s) ${removed.map((d) => d.num).join(', ')} will delete ${lost} entered time(s). Continue?`)) return;
   try {
     await db.saveDays(draftDays);
+    if (removed.length) await pruneWaivedDays(removed.map((d) => d.num));
     daysDirty = false;
     flashMsg('days-msg', 'Days saved');
     await refresh();
@@ -576,6 +577,23 @@ function dayChanges(p) {
     .filter(Boolean);
 }
 
+// Days on the site that the sheet doesn't have (e.g. last event ran 6 days, this one runs 5).
+function daysToRemove(p) {
+  if (!p.days.length) return [];
+  return state.days
+    .filter((d) => !p.days.includes(d.num))
+    .map((d) => ({ ...d, times: state.runs.filter((r) => r.day === d.num).length }));
+}
+
+// After days are removed, drop them from classes' waived days too.
+async function pruneWaivedDays(removedNums) {
+  for (const c of state.classes) {
+    if (c.waivedDays.some((d) => removedNums.includes(d))) {
+      await db.setWaivedDays(c.code, c.waivedDays.filter((d) => !removedNums.includes(d)));
+    }
+  }
+}
+
 // Class names from the sheet win (the same letter can mean different classes at different events).
 function classNameChanges(p) {
   return p.classes
@@ -664,8 +682,19 @@ function renderSheetPreview(p) {
   const added = dChanges.filter((d) => d.isNew);
   const renamed = dChanges.filter((d) => !d.isNew);
   if (added.length) notes.unshift(`Day ${added.map((d) => `${d.num}${d.location ? ` (${d.location})` : ''}`).join(', ')} will be added to the event.`);
+  const removing = daysToRemove(p);
+  if (removing.length) {
+    const lost = removing.reduce((n, d) => n + d.times, 0);
+    notes.unshift(`This sheet has ${p.days.length} days, so day ${removing.map((d) => d.num).join(', ')} will be removed from the event${lost ? `, along with the ${lost} times entered for ${removing.length > 1 ? 'them' : 'it'}` : ''}.`);
+  }
   if (renamed.length) notes.unshift(`Track names will be updated: ${renamed.map((d) => `day ${d.num} → ${d.location}`).join(', ')}.`);
   const names = classNameChanges(p);
+  // Drivers from a previous event would stay mixed in with this one.
+  const sheetCars = new Set(p.entrants.map((e) => e.car_number));
+  const leftover = state.entrants.filter((e) => !sheetCars.has(e.car_number)).length;
+  if (leftover && (names.length || added.length || removing.length)) {
+    notes.unshift(`This looks like a different event, and ${leftover} drivers already on the site aren't in this sheet. They'll stay in the standings. To start fresh, use Settings → Clear results before importing.`);
+  }
   if (names.length) notes.unshift(`Class names will be updated from the sheet: ${names.map((c) => `${c.code} “${c.from}” → “${c.to}”`).join(', ')}.`);
   $('sheet-warnings').innerHTML = notes.length
     ? `<div class="notice"><b>Check before importing</b><ul>${notes.slice(0, 50).map((n) => `<li>${esc(n)}</li>`).join('')}</ul></div>`
@@ -698,8 +727,18 @@ $('sheet-import').addEventListener('click', async () => {
   try {
     // Un-waive days that now have times before importing (times on waived days are skipped),
     // then set the rest, including classes the import creates.
+    const removing = daysToRemove(pendingSheet);
+    const lost = removing.reduce((n, d) => n + d.times, 0);
+    if (lost && !confirm(`This removes day ${removing.map((d) => d.num).join(', ')} and the ${lost} times entered for it. Continue?`)) {
+      flashMsg('sheet-msg', 'Import cancelled. Nothing was changed.', false);
+      return;
+    }
     const dChanges = dayChanges(pendingSheet);
     if (dChanges.length) await db.upsertDays(dChanges);
+    if (removing.length) {
+      await db.removeDays(removing.map((d) => d.num));
+      await pruneWaivedDays(removing.map((d) => d.num));
+    }
     for (const c of classNameChanges(pendingSheet)) await db.setClassName(c.code, c.to);
     const changes = waiverChanges(pendingSheet);
     for (const c of changes.filter((c) => !c.isNew)) await db.setWaivedDays(c.code, c.to);

@@ -203,11 +203,18 @@ export const upsertDays = (days) =>
   run(sb.from('ls_days').upsert(days.map((d) => ({ num: d.num, location: d.location ?? '' })), { onConflict: 'num' }));
 export const deleteClass = (code) => run(sb.from('ls_classes').delete().eq('code', code));
 
-export function saveDays(days) {
-  const clean = days.map((d) => ({ num: Number(d.num), location: String(d.location ?? '').trim(), date: d.date || '' }));
+// Saves the event's day list: adds/updates the given days and removes any others
+// (removing a day also removes the times entered for it).
+export async function saveDays(days) {
+  const clean = days.map((d) => ({ num: Number(d.num), location: String(d.location ?? '').trim(), date: d.date || null }));
+  if (!clean.length) throw new Error('At least one day is required');
   if (clean.some((d) => !Number.isInteger(d.num) || d.num < 1)) throw new Error('Day numbers must be positive whole numbers');
-  return run(sb.rpc('ls_save_days', { p_days: clean }));
+  if (new Set(clean.map((d) => d.num)).size !== clean.length) throw new Error('Day numbers must be unique');
+  await run(sb.from('ls_days').upsert(clean, { onConflict: 'num' }));
+  const keep = clean.map((d) => d.num);
+  await run(sb.from('ls_days').delete().not('num', 'in', `(${keep.join(',')})`));
 }
+export const removeDays = (nums) => run(sb.from('ls_days').delete().in('num', nums));
 
 export function saveSettings({ eventName, penaltyRt, penaltyEt, penaltyMph }) {
   const vals = { event_name: String(eventName).trim(), penalty_rt: num(penaltyRt), penalty_et: num(penaltyEt), penalty_mph: num(penaltyMph) };
